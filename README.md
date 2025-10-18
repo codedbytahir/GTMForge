@@ -30,14 +30,15 @@ GTMForge/
 │   ├── agents/     # Agent implementations
 │   ├── core/       # ADK orchestration engine
 │   └── utils/      # Helper functions and utilities
+├── frontend/       # Web UI (React/Next.js/Vite)
 ├── prompts/        # AI prompt templates
 ├── output/
 │   ├── images/     # Generated images from Imagen
 │   └── videos/     # Generated videos from Veo
+├── main.py         # CLI entry point
+├── api.py          # FastAPI backend server
 ├── requirements.txt
 ├── .env.template
-├── .gitignore
-├── implementation.md
 └── README.md
 ```
 
@@ -116,13 +117,16 @@ Refer to `.env.template` for complete configuration options.
 ### Phase 3 - QA and System Integration
 - [ ] End-to-end testing
 - [ ] Publisher Agent implementation
+- [ ] FastAPI backend with WebSocket support
 - [ ] CLI entry point
 - [ ] Validation across multiple ideas
 
-### Phase 4 - UX, Documentation, and Polish
-- [ ] Visual enhancements
+### Phase 4 - Frontend, UX, and Documentation
+- [ ] Modern web frontend (React/Next.js/Vite)
+- [ ] Real-time generation dashboard
+- [ ] Visual enhancements and branding
 - [ ] Architecture diagrams (Excalidraw)
-- [ ] Complete documentation
+- [ ] Complete documentation and user guides
 
 ### Phase 5 - Bake-Off Readiness
 - [ ] Live demo preparation
