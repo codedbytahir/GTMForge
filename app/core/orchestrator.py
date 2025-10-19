@@ -16,6 +16,7 @@ from app.core.schemas import (
     PitchNarrativeOutput,
     PromptForgeOutput,
     QAValidationOutput,
+    MediaGenerationOutput,
     PublisherOutput
 )
 from app.core.mcp import MCPRegistry
@@ -24,6 +25,9 @@ from app.agents.comparative_insight_agent.agent import ComparativeInsightAgent
 from app.agents.pitch_writer_agent.agent import PitchWriterAgent
 from app.agents.prompt_forge_agent.agent import PromptForgeAgent
 from app.agents.qa_agent.agent import QAAgent
+from app.agents.imagen_agent.agent import ImagenAgent
+from app.agents.veo_agent.agent import VeoAgent
+from app.agents.canva_agent.agent import CanvaAgent
 from app.agents.publisher_agent.agent import PublisherAgent
 
 
@@ -31,34 +35,46 @@ class GTMForgeOrchestrator:
     """
     GTMForge Orchestrator manages the complete multi-agent pipeline.
     
-    Pipeline Flow:
+    Phase 1 Pipeline Flow (Sequential):
     1. Ideation Agent: Expand idea into ICPs and market context
     2. Comparative Insight Agent: Benchmark vs. successful startups
     3. Pitch Writer Agent: Create slide-by-slide narrative
     4. Prompt Forge Agent: Generate Imagen/Veo prompts (with loop refinement)
     5. QA Agent: Validate all content and assets
-    6. Publisher Agent: Publish to GCS and Canva (Phase 3)
+    
+    Phase 2 Pipeline Extension (Media Generation):
+    6. Media Generation Stage (sequential):
+       - Imagen Agent: Generate images from prompts
+       - Veo Agent: Generate video trailer from images
+       - Canva Agent: Create pitch deck with images
+    7. Publisher Agent: Publish to GCS and Canva (Phase 3)
     
     Execution Patterns:
-    - Sequential: Main pipeline runs sequentially
-    - Parallel: Phase 2 will add parallel processing for media generation
-    - Loop: Prompt Forge Agent can iterate for refinement
+    - Sequential: All stages run sequentially
+    - Refinement Loops: Imagen/Veo retry if quality below threshold
+    - Asset Aggregation: Media stage builds manifest of all assets
     
-    Phase 1: Sequential execution with mock data
-    Phase 2: Add parallel media generation and actual API calls
-    Phase 3: Complete with publisher integration
+    Phase 2: Sequential media generation with mock API calls
+    Phase 3: Full GCS upload and Canva Connect integration
     """
     
     def __init__(self):
         """Initialize the orchestrator with all agents and services."""
         self.logger = structlog.get_logger(__name__)
         
-        # Initialize agents
+        # Phase 1 agents
         self.ideation_agent = IdeationAgent()
         self.comparative_agent = ComparativeInsightAgent()
         self.pitch_writer = PitchWriterAgent()
         self.prompt_forge = PromptForgeAgent(max_refinement_cycles=3)
         self.qa_agent = QAAgent()
+        
+        # Phase 2 media agents
+        self.imagen_agent = ImagenAgent(quality_threshold=0.85, max_retries=3)
+        self.veo_agent = VeoAgent(quality_threshold=0.80, max_retries=2)
+        self.canva_agent = CanvaAgent(theme="dark_steel_tech_blue")
+        
+        # Phase 3 publisher
         self.publisher_agent = PublisherAgent()
         
         # Initialize MCP registry
@@ -76,6 +92,9 @@ class GTMForgeOrchestrator:
                 self.pitch_writer.name,
                 self.prompt_forge.name,
                 self.qa_agent.name,
+                self.imagen_agent.name,
+                self.veo_agent.name,
+                self.canva_agent.name,
                 self.publisher_agent.name
             ]
         )
@@ -140,7 +159,10 @@ class GTMForgeOrchestrator:
             # Stage 5: QA Validation
             await self._run_qa_stage()
             
-            # Stage 6: Publisher (Phase 3)
+            # Stage 6: Media Generation
+            await self._run_media_generation_stage()
+            
+            # Stage 7: Publisher (Phase 3)
             await self._run_publisher_stage()
             
             # Mark pipeline as completed
@@ -265,6 +287,143 @@ class GTMForgeOrchestrator:
             )
         
         self.logger.info("stage_completed", stage="qa_validation")
+    
+    async def _run_media_generation_stage(self) -> None:
+        """
+        Execute the Media Generation stage (Phase 2).
+        Runs Imagen → Veo → Canva sequentially to generate media assets.
+        """
+        stage_start_time = datetime.now()
+        self._pipeline_state.current_stage = "media_generation"
+        self.logger.info(
+            "stage_started",
+            stage="media_generation",
+            note="Phase 2: Sequential media generation"
+        )
+        
+        try:
+            # Stage 6a: Imagen - Generate slide images
+            self.logger.info("media_substage_started", substage="imagen_generation")
+            imagen_output = await self.imagen_agent.execute(
+                self._pipeline_state.prompt_output
+            )
+            self._pipeline_state.media_output = MediaGenerationOutput(
+                imagen_output=imagen_output,
+                total_stage_time_seconds=0.0,
+                refinement_cycles_performed=0,
+                stage_complete=False,
+                asset_manifest={}
+            )
+            self.logger.info(
+                "media_substage_completed",
+                substage="imagen_generation",
+                images_generated=len(imagen_output.images),
+                average_quality=imagen_output.average_quality_score
+            )
+            
+            # Stage 6b: Veo - Generate video trailer from images
+            self.logger.info("media_substage_started", substage="veo_generation")
+            veo_output = await self.veo_agent.execute(imagen_output)
+            self._pipeline_state.media_output.veo_output = veo_output
+            self.logger.info(
+                "media_substage_completed",
+                substage="veo_generation",
+                videos_generated=len(veo_output.videos),
+                average_quality=veo_output.average_quality_score
+            )
+            
+            # Stage 6c: Canva - Create pitch deck
+            self.logger.info("media_substage_started", substage="canva_deck_creation")
+            canva_output = await self.canva_agent.execute(imagen_output)
+            self._pipeline_state.media_output.canva_output = canva_output
+            self.logger.info(
+                "media_substage_completed",
+                substage="canva_deck_creation",
+                pages_created=canva_output.total_pages,
+                deck_id=canva_output.deck_id
+            )
+            
+            # Build asset manifest from all media outputs
+            asset_manifest = self._build_media_manifest(
+                imagen_output, veo_output, canva_output
+            )
+            self._pipeline_state.media_output.asset_manifest = asset_manifest
+            
+            # Update final stage state
+            stage_completion_time = (datetime.now() - stage_start_time).total_seconds()
+            self._pipeline_state.media_output.total_stage_time_seconds = stage_completion_time
+            self._pipeline_state.media_output.stage_complete = (
+                imagen_output.generation_complete and
+                veo_output.generation_complete and
+                canva_output.creation_complete
+            )
+            
+            self.logger.info(
+                "stage_completed",
+                stage="media_generation",
+                stage_complete=self._pipeline_state.media_output.stage_complete,
+                total_time_seconds=stage_completion_time,
+                assets_in_manifest=len(asset_manifest)
+            )
+        
+        except Exception as e:
+            self.logger.error(
+                "media_generation_stage_failed",
+                error=str(e),
+                error_type=type(e).__name__
+            )
+            raise
+    
+    def _build_media_manifest(
+        self,
+        imagen_output,
+        veo_output,
+        canva_output
+    ) -> dict:
+        """
+        Build a temporary manifest of all generated assets.
+        
+        Returns:
+            Dictionary mapping asset IDs to metadata
+        """
+        manifest = {}
+        
+        # Add images
+        for image in imagen_output.images:
+            manifest[image.image_id] = {
+                "type": "image",
+                "slide_number": image.slide_number,
+                "local_path": image.local_path,
+                "quality_score": image.quality_score,
+                "refinement_iteration": image.refinement_iteration
+            }
+        
+        # Add videos
+        for video in veo_output.videos:
+            manifest[video.video_id] = {
+                "type": "video",
+                "local_path": video.local_path,
+                "duration_seconds": video.duration_seconds,
+                "quality_score": video.quality_score,
+            }
+        
+        # Add Canva deck info
+        manifest["canva_deck"] = {
+            "type": "presentation",
+            "deck_id": canva_output.deck_id,
+            "total_pages": canva_output.total_pages,
+            "theme": canva_output.design_theme
+        }
+        
+        self.logger.info(
+            "media_manifest_built",
+            total_assets=len(manifest),
+            images=len(imagen_output.images),
+            videos=len(veo_output.videos),
+            pages=canva_output.total_pages
+        )
+        
+        return manifest
     
     async def _run_publisher_stage(self) -> None:
         """Execute the Publisher Agent stage (Phase 3)."""

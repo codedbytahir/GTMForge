@@ -281,6 +281,157 @@ class PublisherOutput(BaseModel):
             }
         }
 
+class GeneratedImage(BaseModel):
+    """Metadata for a generated image"""
+    image_id: str = Field(..., description="Unique identifier for this image")
+    slide_number: int = Field(..., description="Associated slide number")
+    local_path: str = Field(..., description="Local file path where image is saved")
+    url: Optional[str] = Field(None, description="GCS URL (Phase 3)")
+    quality_score: float = Field(default=0.0, description="Quality score 0-1")
+    generation_time_seconds: float = Field(..., description="Time taken to generate")
+    prompt_used: str = Field(..., description="The actual prompt used for generation")
+    refinement_iteration: int = Field(default=0, description="Which refinement cycle this came from")
+
+
+class ImagenOutput(BaseModel):
+    """
+    Output from Imagen Agent.
+    Generated images for all pitch deck slides.
+    """
+    images: List[GeneratedImage] = Field(default_factory=list, description="Generated images")
+    total_generation_time_seconds: float = Field(..., description="Total time for all image generations")
+    average_quality_score: float = Field(..., description="Average quality across all images")
+    generation_complete: bool = Field(default=True, description="Whether all requested images were generated")
+    errors: List[str] = Field(default_factory=list, description="Any generation errors encountered")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "images": [
+                    {
+                        "image_id": "img_slide_1",
+                        "slide_number": 1,
+                        "local_path": "/output/images/imagen_slide_1_0.png",
+                        "url": None,
+                        "quality_score": 0.92,
+                        "generation_time_seconds": 3.5,
+                        "prompt_used": "Professional restaurant manager looking stressed...",
+                        "refinement_iteration": 0
+                    }
+                ],
+                "total_generation_time_seconds": 38.5,
+                "average_quality_score": 0.89,
+                "generation_complete": True,
+                "errors": []
+            }
+        }
+
+
+class GeneratedVideo(BaseModel):
+    """Metadata for a generated video"""
+    video_id: str = Field(..., description="Unique identifier for this video")
+    local_path: str = Field(..., description="Local file path where video is saved")
+    url: Optional[str] = Field(None, description="GCS URL (Phase 3)")
+    duration_seconds: int = Field(..., description="Duration of video in seconds")
+    quality_score: float = Field(default=0.0, description="Quality score 0-1")
+    generation_time_seconds: float = Field(..., description="Time taken to generate")
+    prompt_used: str = Field(..., description="The actual prompt used for generation")
+    source_images: List[str] = Field(default_factory=list, description="Image IDs used as source")
+
+
+class VeoOutput(BaseModel):
+    """
+    Output from Veo Agent.
+    Generated video trailer from pitch deck imagery.
+    """
+    videos: List[GeneratedVideo] = Field(default_factory=list, description="Generated videos")
+    total_generation_time_seconds: float = Field(..., description="Total time for all video generations")
+    average_quality_score: float = Field(..., description="Average quality across all videos")
+    generation_complete: bool = Field(default=True, description="Whether video generation succeeded")
+    errors: List[str] = Field(default_factory=list, description="Any generation errors encountered")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "videos": [
+                    {
+                        "video_id": "veo_trailer",
+                        "local_path": "/output/videos/veo_trailer_0.mp4",
+                        "url": None,
+                        "duration_seconds": 45,
+                        "quality_score": 0.88,
+                        "generation_time_seconds": 120.0,
+                        "prompt_used": "Cinematic trailer opening with problem visualization...",
+                        "source_images": ["img_slide_1", "img_slide_2", "img_slide_3"]
+                    }
+                ],
+                "total_generation_time_seconds": 120.0,
+                "average_quality_score": 0.88,
+                "generation_complete": True,
+                "errors": []
+            }
+        }
+
+
+class CanvaPage(BaseModel):
+    """Metadata for a Canva deck page"""
+    page_number: int = Field(..., description="Page sequence number")
+    page_id: str = Field(..., description="Canva page ID")
+    slide_title: str = Field(..., description="Title of the slide")
+    has_image: bool = Field(default=False, description="Whether image was added")
+    has_text: bool = Field(default=False, description="Whether text content was added")
+    design_applied: bool = Field(default=False, description="Whether visual design was applied")
+
+
+class CanvaOutput(BaseModel):
+    """
+    Output from Canva Agent.
+    Pitch deck created and formatted via Canva Connect API.
+    """
+    deck_id: str = Field(..., description="Canva design ID")
+    deck_url: Optional[str] = Field(None, description="Canva shareable URL")
+    pages: List[CanvaPage] = Field(default_factory=list, description="Pages in the deck")
+    total_pages: int = Field(..., description="Total number of pages created")
+    creation_complete: bool = Field(default=True, description="Whether deck creation succeeded")
+    design_theme: str = Field(..., description="Applied design theme (e.g., Dark Steel + Tech Blue)")
+    errors: List[str] = Field(default_factory=list, description="Any creation errors encountered")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "deck_id": "canva_design_abc123",
+                "deck_url": None,
+                "pages": [
+                    {
+                        "page_number": 1,
+                        "page_id": "page_1",
+                        "slide_title": "The Problem",
+                        "has_image": True,
+                        "has_text": True,
+                        "design_applied": True
+                    }
+                ],
+                "total_pages": 11,
+                "creation_complete": True,
+                "design_theme": "Dark Steel + Tech Blue",
+                "errors": []
+            }
+        }
+
+
+class MediaGenerationOutput(BaseModel):
+    """
+    Aggregated output from entire media generation stage.
+    Contains results from Imagen, Veo, and Canva agents.
+    """
+    imagen_output: Optional[ImagenOutput] = Field(None, description="Image generation results")
+    veo_output: Optional[VeoOutput] = Field(None, description="Video generation results")
+    canva_output: Optional[CanvaOutput] = Field(None, description="Canva deck creation results")
+    total_stage_time_seconds: float = Field(..., description="Total time for entire media stage")
+    refinement_cycles_performed: int = Field(default=0, description="Number of prompt refinement cycles")
+    stage_complete: bool = Field(default=True, description="Whether entire stage succeeded")
+    asset_manifest: Dict[str, str] = Field(default_factory=dict, description="Temporary manifest of all assets")
+
 
 # ============================================================================
 # Pipeline State Schema
@@ -298,6 +449,7 @@ class PipelineState(BaseModel):
     pitch_output: Optional[PitchNarrativeOutput] = None
     prompt_output: Optional[PromptForgeOutput] = None
     qa_output: Optional[QAValidationOutput] = None
+    media_output: Optional[MediaGenerationOutput] = None
     publisher_output: Optional[PublisherOutput] = None
     current_stage: str = Field(default="initialized", description="Current pipeline stage")
     started_at: datetime = Field(default_factory=datetime.now)
