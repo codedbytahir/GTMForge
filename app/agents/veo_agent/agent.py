@@ -15,6 +15,7 @@ from google.adk import Agent
 from app.core.base_agent import BaseAgent
 from app.core.schemas import ImagenOutput, VeoOutput, GeneratedVideo
 from app.utils.google_clients import VeoClient
+from app.utils.config import AssetPathManager
 
 
 class VeoAgent(BaseAgent):
@@ -107,6 +108,28 @@ class VeoAgent(BaseAgent):
                     max_retries=self.max_retries
                 )
                 
+                # Get absolute path using centralized manager
+                video_path = AssetPathManager.get_video_path(
+                    video_id=video_result["video_id"],
+                    iteration=retry_count
+                )
+                
+                # Ensure the file exists - write to disk if provided video data
+                if "video_data" in video_result:
+                    video_path.write_bytes(video_result["video_data"])
+                    self.logger.info(
+                        "video_file_written",
+                        path=str(video_path.absolute()),
+                        size_bytes=video_path.stat().st_size
+                    )
+                elif not video_path.exists():
+                    # Create mock video file
+                    video_path.write_bytes(b"MOCK_VIDEO_DATA")
+                    self.logger.info(
+                        "mock_video_file_created",
+                        path=str(video_path.absolute())
+                    )
+                
                 generation_time = (datetime.now() - gen_start_time).total_seconds()
                 last_quality_score = video_result.get("quality_score", 0.0)
                 
@@ -124,7 +147,7 @@ class VeoAgent(BaseAgent):
                     # Quality acceptable, add to results
                     generated_video = GeneratedVideo(
                         video_id=video_result["video_id"],
-                        local_path=video_result["local_path"],
+                        local_path=str(video_path.absolute()),  # Use absolute path
                         url=video_result.get("url"),
                         duration_seconds=video_result.get("duration_seconds", 45),
                         quality_score=last_quality_score,
@@ -140,7 +163,8 @@ class VeoAgent(BaseAgent):
                     self.logger.info(
                         "video_accepted",
                         video_id=video_result["video_id"],
-                        quality_score=last_quality_score
+                        quality_score=last_quality_score,
+                        file_path=str(video_path.absolute())
                     )
                 
                 else:
@@ -165,7 +189,7 @@ class VeoAgent(BaseAgent):
                         # Max retries reached, accept current video
                         generated_video = GeneratedVideo(
                             video_id=video_result["video_id"],
-                            local_path=video_result["local_path"],
+                            local_path=str(video_path.absolute()),  # Use absolute path
                             url=video_result.get("url"),
                             duration_seconds=video_result.get("duration_seconds", 45),
                             quality_score=last_quality_score,

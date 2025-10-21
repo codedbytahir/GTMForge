@@ -430,7 +430,7 @@ class MediaGenerationOutput(BaseModel):
     total_stage_time_seconds: float = Field(..., description="Total time for entire media stage")
     refinement_cycles_performed: int = Field(default=0, description="Number of prompt refinement cycles")
     stage_complete: bool = Field(default=True, description="Whether entire stage succeeded")
-    asset_manifest: Dict[str, str] = Field(default_factory=dict, description="Temporary manifest of all assets")
+    asset_manifest: Dict[str, Any] = Field(default_factory=dict, description="Temporary manifest of all assets")
 
 
 # ============================================================================
@@ -457,3 +457,50 @@ class PipelineState(BaseModel):
     
     class Config:
         arbitrary_types_allowed = True
+        
+class QAReport(BaseModel):
+    """
+    QA validation report with comprehensive asset validation results.
+    """
+    status: str = Field(..., description="Overall QA status: passed, failed, passed_with_warnings")
+    validation_timestamp: str = Field(..., description="ISO timestamp of validation")
+    total_assets_checked: int = Field(..., description="Total number of assets validated")
+    assets_valid: int = Field(..., description="Number of assets that passed validation")
+    assets_invalid: int = Field(..., description="Number of assets that failed validation")
+    errors: List[Dict[str, str]] = Field(default_factory=list, description="List of {asset_id, error_message} for failed validations")
+    warnings: List[Dict[str, str]] = Field(default_factory=list, description="List of {asset_id, warning_message} for warnings")
+    metrics: Dict[str, Any] = Field(default_factory=dict, description="Validation metrics: dimensions, file_sizes, quality_scores, etc.")
+    retry_summary: Dict[str, int] = Field(default_factory=dict, description="Retry counts by asset_type")
+    validation_duration_seconds: float = Field(..., description="Total time spent on validation")
+
+
+class ManifestAsset(BaseModel):
+    """
+    Individual asset in the published manifest.
+    """
+    asset_id: str = Field(..., description="Unique asset identifier")
+    asset_type: str = Field(..., description="Type of asset: image, video, deck")
+    gcs_path: str = Field(..., description="GCS path: gs://bucket/assets/type/asset_id.ext")
+    gcs_url: str = Field(..., description="Signed URL for accessing the asset")
+    size_bytes: int = Field(..., description="Asset size in bytes")
+    quality_score: float = Field(..., description="Quality score (0.0-1.0)")
+    generated_at: str = Field(..., description="ISO timestamp when asset was generated")
+    slide_number: Optional[int] = Field(None, description="Slide number for images")
+    duration_seconds: Optional[float] = Field(None, description="Duration for videos")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional asset metadata")
+
+
+class PublishOutput(BaseModel):
+    """
+    Output from Publisher Agent with manifest and GCS URLs.
+    """
+    manifest_id: str = Field(..., description="Unique manifest identifier")
+    task_id: str = Field(..., description="Associated task ID")
+    assets: List[ManifestAsset] = Field(default_factory=list, description="List of all published assets")
+    created_at: str = Field(..., description="ISO timestamp when manifest was created")
+    manifest_location: str = Field(..., description="GCS path to manifest.json")
+    manifest_url: str = Field(..., description="Signed URL to access manifest.json")
+    total_assets: int = Field(..., description="Total number of assets in manifest")
+    qa_status: str = Field(..., description="QA status from validation: passed, failed, passed_with_warnings")
+    upload_duration_seconds: float = Field(..., description="Time spent uploading assets to GCS")
+    errors: List[str] = Field(default_factory=list, description="Any upload errors encountered")

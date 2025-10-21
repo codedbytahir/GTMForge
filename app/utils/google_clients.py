@@ -6,6 +6,7 @@ Phase 3+: Will be replaced with actual API implementations.
 """
 
 import os
+import uuid
 from typing import Optional, Dict, Any, List
 import structlog
 from datetime import datetime
@@ -844,7 +845,7 @@ class GoogleCloudStorageClient:
     
     async def upload_asset(
         self,
-        local_path: str,
+        local_path: Optional[str],
         asset_type: str = "image",
         metadata: Optional[Dict[str, str]] = None,
         retry_count: int = 0,
@@ -854,7 +855,7 @@ class GoogleCloudStorageClient:
         Upload an asset to GCS.
         
         Args:
-            local_path: Local file path
+            local_path: Local file path (optional for cloud-based assets like Canva)
             asset_type: Type of asset (image, video, etc.)
             metadata: Optional metadata key-value pairs
             retry_count: Current retry attempt
@@ -871,7 +872,12 @@ class GoogleCloudStorageClient:
         )
         
         # Phase 2: Mock response
-        asset_id = os.path.basename(local_path)
+        if local_path:
+            asset_id = os.path.basename(local_path)
+        else:
+            # For cloud-based assets (like Canva), generate ID from metadata
+            asset_id = metadata.get("deck_id", f"{asset_type}_{uuid.uuid4().hex[:8]}") if metadata else f"{asset_type}_{uuid.uuid4().hex[:8]}"
+        
         gcs_path = f"gs://{self.bucket_name}/{asset_type}s/{asset_id}"
         gcs_url = f"https://storage.googleapis.com/{self.bucket_name}/{asset_type}s/{asset_id}"
         
@@ -879,12 +885,18 @@ class GoogleCloudStorageClient:
         # blob = self.bucket.blob(gcs_path)
         # blob.upload_from_filename(local_path)
         
+        # Get file size if local_path exists
+        size_bytes = 0
+        if local_path and os.path.exists(local_path):
+            size_bytes = os.path.getsize(local_path)
+        
         result = {
             "asset_id": asset_id,
             "local_path": local_path,
             "gcs_path": gcs_path,
             "gcs_url": gcs_url,
             "asset_type": asset_type,
+            "size_bytes": size_bytes,
             "uploaded_at": datetime.now().isoformat(),
             "retry_count": retry_count
         }

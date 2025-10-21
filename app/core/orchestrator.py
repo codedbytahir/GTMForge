@@ -274,16 +274,21 @@ class GTMForgeOrchestrator:
         self.logger.info("stage_started", stage="qa_validation")
         
         output = await self.qa_agent.execute(
-            self._pipeline_state.prompt_output
+            self._pipeline_state
         )
         self._pipeline_state.qa_output = output
         
         # Log validation results
-        if not output.validation_passed:
+        if output.status == "failed":
             self.logger.warning(
-                "qa_validation_issues",
-                critical_issues=len([i for i in output.issues if i.severity == "critical"]),
-                total_issues=len(output.issues)
+                "qa_validation_failed",
+                assets_invalid=output.assets_invalid,
+                total_errors=len(output.errors)
+            )
+        elif output.status == "passed_with_warnings":
+            self.logger.info(
+                "qa_validation_passed_with_warnings",
+                total_warnings=len(output.warnings)
             )
         
         self.logger.info("stage_completed", stage="qa_validation")
@@ -486,3 +491,89 @@ class GTMForgeOrchestrator:
             "qa": self.qa_agent.get_metadata(),
             "publisher": self.publisher_agent.get_metadata()
         }
+    
+    async def run_with_progress(
+        self,
+        idea: str,
+        industry: str,
+        progress_callback=None
+    ) -> PipelineState:
+        """
+        Execute pipeline with progress callbacks for API integration.
+        
+        Args:
+            idea: Business idea to generate assets for
+            industry: Industry context for the idea
+            progress_callback: Callback function(stage, progress) for progress updates
+            
+        Returns:
+            Complete pipeline state with all outputs
+        """
+        # Create startup input
+        startup_idea = StartupIdeaInput(
+            idea=idea,
+            industry=industry,
+            target_audience="startup founders and investors",
+            visual_theme="dark_steel_tech_blue"
+        )
+        
+        # Initialize pipeline state
+        session_id = f"session_{uuid.uuid4().hex[:12]}"
+        self._current_session = session_id
+        self._pipeline_state = PipelineState(
+            session_id=session_id,
+            input_data=startup_idea,
+            current_stage="initialized"
+        )
+        
+        # Initialize progress
+        if progress_callback:
+            progress_callback("initialization", 0.0)
+        
+        # Run pipeline with progress updates
+        try:
+            # Stage 1: Ideation (10%)
+            if progress_callback:
+                progress_callback("ideation", 10.0)
+            await self._run_ideation_stage()
+            
+            # Stage 2: Comparative Insight (20%)
+            if progress_callback:
+                progress_callback("comparative_insight", 20.0)
+            await self._run_comparative_stage()
+            
+            # Stage 3: Pitch Writing (30%)
+            if progress_callback:
+                progress_callback("pitch_writing", 30.0)
+            await self._run_pitch_writing_stage()
+            
+            # Stage 4: Prompt Forge (50%)
+            if progress_callback:
+                progress_callback("prompt_forge", 50.0)
+            await self._run_prompt_forge_stage()
+            
+            # Stage 5: Media Generation (80%)
+            if progress_callback:
+                progress_callback("media_generation", 80.0)
+            await self._run_media_generation_stage()
+            
+            # Stage 6: QA Validation (90%)
+            if progress_callback:
+                progress_callback("qa_validation", 90.0)
+            await self._run_qa_stage()
+            
+            # Complete
+            if progress_callback:
+                progress_callback("completed", 100.0)
+            
+            return self._pipeline_state
+            
+        except Exception as e:
+            self.logger.error("pipeline_execution_failed", error=str(e))
+            if progress_callback:
+                progress_callback("failed", 0.0)
+            raise
+    
+    def get_pipeline_state(self) -> PipelineState:
+        """Get the current pipeline state."""
+        return self._pipeline_state

@@ -1,188 +1,107 @@
 """
 GTMForge Configuration Management
-Loads and validates environment variables and configuration settings.
+Centralized configuration for paths, clients, and environment settings.
 """
 
 import os
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
-from dotenv import load_dotenv
+from pathlib import Path
+from typing import Dict, Optional
 import structlog
-
-# Load environment variables
-load_dotenv()
 
 logger = structlog.get_logger(__name__)
 
+# Base directory
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+OUTPUT_DIR = PROJECT_ROOT / "output"
+LOGS_DIR = PROJECT_ROOT / "logs"
 
-class GeminiConfig(BaseModel):
-    """Gemini API configuration"""
-    api_key: str = Field(..., description="Gemini API key")
-    pro_key: Optional[str] = Field(None, description="Gemini Pro API key")
-    flash_key: Optional[str] = Field(None, description="Gemini Flash API key")
+# Asset storage directories
+ASSETS_DIR = OUTPUT_DIR / "assets"
+IMAGES_DIR = ASSETS_DIR / "images"
+VIDEOS_DIR = ASSETS_DIR / "videos"
+DECKS_DIR = ASSETS_DIR / "decks"
+
+# Ensure all directories exist
+def ensure_directories():
+    """Create all necessary directories"""
+    for directory in [OUTPUT_DIR, LOGS_DIR, ASSETS_DIR, IMAGES_DIR, VIDEOS_DIR, DECKS_DIR]:
+        directory.mkdir(parents=True, exist_ok=True)
+    logger.info("directories_ensured", directories=[
+        str(OUTPUT_DIR),
+        str(LOGS_DIR),
+        str(ASSETS_DIR),
+        str(IMAGES_DIR),
+        str(VIDEOS_DIR),
+        str(DECKS_DIR)
+    ])
+
+# Call on module load
+ensure_directories()
+
+class AssetPathManager:
+    """Centralized asset path management"""
     
-    @field_validator('api_key')
-    @classmethod
-    def validate_api_key(cls, v):
-        if not v or v.startswith("your-") or v.startswith("YOUR_"):
-            raise ValueError("Gemini API key not configured. Check your .env file.")
-        return v
-
-
-class VertexAIConfig(BaseModel):
-    """Vertex AI configuration"""
-    project_id: str = Field(..., description="GCP project ID")
-    location: str = Field(default="us-central1", description="Vertex AI location")
+    @staticmethod
+    def get_image_path(image_id: str, slide_number: int, iteration: int = 0) -> Path:
+        """Get absolute path for an image file"""
+        filename = f"imagen_slide_{slide_number}_{iteration}.png"
+        return IMAGES_DIR / filename
     
-    @field_validator('project_id')
-    @classmethod
-    def validate_project_id(cls, v):
-        if not v or v.startswith("your-"):
-            raise ValueError("GCP project ID not configured. Check your .env file.")
-        return v
-
-
-class ImagenConfig(BaseModel):
-    """Imagen configuration"""
-    model: str = Field(default="imagegeneration@006", description="Imagen model version")
-    project_id: str = Field(..., description="GCP project ID for Imagen")
-
-
-class VeoConfig(BaseModel):
-    """Veo configuration"""
-    model: str = Field(default="veo-3.1", description="Veo model version")
-    project_id: str = Field(..., description="GCP project ID for Veo")
-
-
-class StorageConfig(BaseModel):
-    """Google Cloud Storage configuration"""
-    bucket_name: str = Field(..., description="GCS bucket name")
-    bucket_region: str = Field(default="us-central1", description="GCS bucket region")
-    credentials_path: Optional[str] = Field(None, description="Path to service account credentials")
-
-
-class CanvaConfig(BaseModel):
-    """Canva API configuration (Phase 2+)"""
-    client_id: Optional[str] = Field(None, description="Canva client ID")
-    client_secret: Optional[str] = Field(None, description="Canva client secret")
-    redirect_uri: Optional[str] = Field(None, description="OAuth redirect URI")
-
-
-class ADKConfig(BaseModel):
-    """Agent Development Kit configuration"""
-    log_level: str = Field(default="INFO", description="ADK log level")
-    retry_attempts: int = Field(default=3, description="Number of retry attempts")
-    timeout_seconds: int = Field(default=60, description="Request timeout in seconds")
-
-
-class AppConfig(BaseModel):
-    """Application-wide configuration"""
-    env: str = Field(default="development", description="Environment: development, staging, production")
-    debug: bool = Field(default=True, description="Debug mode enabled")
-    log_level: str = Field(default="INFO", description="Application log level")
-
-
-class GTMForgeConfig(BaseModel):
-    """
-    Complete GTMForge configuration.
-    Loads all settings from environment variables.
-    """
-    gemini: GeminiConfig
-    vertex_ai: VertexAIConfig
-    imagen: ImagenConfig
-    veo: VeoConfig
-    storage: StorageConfig
-    canva: CanvaConfig
-    adk: ADKConfig
-    app: AppConfig
+    @staticmethod
+    def get_video_path(video_id: str, iteration: int = 0) -> Path:
+        """Get absolute path for a video file"""
+        filename = f"{video_id}_{iteration}.mp4"
+        return VIDEOS_DIR / filename
     
-    @classmethod
-    def load_from_env(cls) -> "GTMForgeConfig":
-        """
-        Load configuration from environment variables.
-        
-        Returns:
-            Validated GTMForgeConfig instance
-            
-        Raises:
-            ValidationError: If required configuration is missing or invalid
-        """
-        try:
-            config = cls(
-                gemini=GeminiConfig(
-                    api_key=os.getenv("GEMINI_API_KEY", ""),
-                    pro_key=os.getenv("GEMINI_PRO_KEY"),
-                    flash_key=os.getenv("GEMINI_FLASH_KEY"),
-                ),
-                vertex_ai=VertexAIConfig(
-                    project_id=os.getenv("GCP_PROJECT_ID", ""),
-                    location=os.getenv("VERTEX_AI_LOCATION", "us-central1"),
-                ),
-                imagen=ImagenConfig(
-                    model=os.getenv("IMAGEN_MODEL", "imagegeneration@006"),
-                    project_id=os.getenv("IMAGEN_PROJECT_ID", os.getenv("GCP_PROJECT_ID", "")),
-                ),
-                veo=VeoConfig(
-                    model=os.getenv("VEO_MODEL", "veo-3.1"),
-                    project_id=os.getenv("VEO_PROJECT_ID", os.getenv("GCP_PROJECT_ID", "")),
-                ),
-                storage=StorageConfig(
-                    bucket_name=os.getenv("GCS_BUCKET_NAME", "gtmforge-assets"),
-                    bucket_region=os.getenv("GCS_BUCKET_REGION", "us-central1"),
-                    credentials_path=os.getenv("GOOGLE_APPLICATION_CREDENTIALS"),
-                ),
-                canva=CanvaConfig(
-                    client_id=os.getenv("CANVA_CLIENT_ID"),
-                    client_secret=os.getenv("CANVA_CLIENT_SECRET"),
-                    redirect_uri=os.getenv("CANVA_REDIRECT_URI"),
-                ),
-                adk=ADKConfig(
-                    log_level=os.getenv("ADK_LOG_LEVEL", "INFO"),
-                    retry_attempts=int(os.getenv("ADK_RETRY_ATTEMPTS", "3")),
-                    timeout_seconds=int(os.getenv("ADK_TIMEOUT_SECONDS", "60")),
-                ),
-                app=AppConfig(
-                    env=os.getenv("APP_ENV", "development"),
-                    debug=os.getenv("DEBUG", "True").lower() == "true",
-                    log_level=os.getenv("LOG_LEVEL", "INFO"),
-                ),
-            )
-            
-            logger.info("configuration_loaded", env=config.app.env)
-            return config
-            
-        except Exception as e:
-            logger.error("configuration_load_failed", error=str(e))
-            raise
-
-
-# Global configuration instance
-# This will be loaded once and reused throughout the application
-_config: Optional[GTMForgeConfig] = None
-
-
-def get_config() -> GTMForgeConfig:
-    """
-    Get the global configuration instance.
-    Loads from environment on first call.
+    @staticmethod
+    def get_deck_path(deck_id: str) -> Path:
+        """Get absolute path for a deck file"""
+        filename = f"{deck_id}.pdf"
+        return DECKS_DIR / filename
     
-    Returns:
-        GTMForgeConfig instance
-    """
-    global _config
-    if _config is None:
-        _config = GTMForgeConfig.load_from_env()
-    return _config
-
-
-def reload_config() -> GTMForgeConfig:
-    """
-    Force reload configuration from environment.
-    Useful for testing or configuration updates.
+    @staticmethod
+    def get_absolute_path(relative_path: str) -> Path:
+        """Convert relative path to absolute"""
+        if relative_path.startswith("/"):
+            return Path(relative_path)
+        return OUTPUT_DIR / relative_path.lstrip("./")
     
-    Returns:
-        Fresh GTMForgeConfig instance
-    """
-    global _config
-    _config = GTMForgeConfig.load_from_env()
-    return _config
+    @staticmethod
+    def ensure_file_exists(path: Path, create_empty: bool = False) -> bool:
+        """Check if file exists, optionally create empty file"""
+        if path.exists():
+            return True
+        if create_empty:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+            return True
+        return False
+
+# Google Cloud Configuration
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "gtmforge-475520")
+GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME", "gtmforge-assets")
+GCS_LOCATION = os.getenv("GCS_LOCATION", "us-central1")
+
+# Logging Configuration
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+MAX_LOG_FILES = int(os.getenv("MAX_LOG_FILES", "10"))
+LOG_RETENTION_HOURS = int(os.getenv("LOG_RETENTION_HOURS", "24"))
+
+# Task Configuration
+MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
+RETRY_BACKOFF_BASE = float(os.getenv("RETRY_BACKOFF_BASE", "2.0"))
+QUALITY_THRESHOLD = float(os.getenv("QUALITY_THRESHOLD", "0.8"))
+
+# API Configuration
+API_HOST = os.getenv("API_HOST", "0.0.0.0")
+API_PORT = int(os.getenv("API_PORT", "8000"))
+API_WORKERS = int(os.getenv("API_WORKERS", "4"))
+API_TIMEOUT = int(os.getenv("API_TIMEOUT", "3600"))
+
+logger.info(
+    "config_loaded",
+    project_root=str(PROJECT_ROOT),
+    output_dir=str(OUTPUT_DIR),
+    gcp_project=GCP_PROJECT_ID,
+    gcs_bucket=GCS_BUCKET_NAME
+)

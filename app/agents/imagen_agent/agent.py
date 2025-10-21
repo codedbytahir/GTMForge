@@ -15,6 +15,7 @@ from google.adk import Agent
 from app.core.base_agent import BaseAgent
 from app.core.schemas import PromptForgeOutput, ImagenOutput, GeneratedImage
 from app.utils.google_clients import GeminiImagenClient
+from app.utils.config import AssetPathManager
 
 
 class ImagenAgent(BaseAgent):
@@ -106,6 +107,29 @@ class ImagenAgent(BaseAgent):
                         max_retries=self.max_retries
                     )
                     
+                    # Get absolute path using centralized manager
+                    image_path = AssetPathManager.get_image_path(
+                        image_id=image_result["image_id"],
+                        slide_number=prompt_spec.target_slide,
+                        iteration=retry_count
+                    )
+                    
+                    # Ensure the file exists - write to disk if provided image data
+                    if "image_data" in image_result:
+                        image_path.write_bytes(image_result["image_data"])
+                        self.logger.info(
+                            "image_file_written",
+                            path=str(image_path.absolute()),
+                            size_bytes=image_path.stat().st_size
+                        )
+                    elif not image_path.exists():
+                        # Create empty placeholder for mock
+                        image_path.write_bytes(b"MOCK_IMAGE_DATA")
+                        self.logger.info(
+                            "mock_image_file_created",
+                            path=str(image_path.absolute())
+                        )
+                    
                     generation_time = (datetime.now() - gen_start_time).total_seconds()
                     last_quality_score = image_result.get("quality_score", 0.0)
                     
@@ -123,7 +147,7 @@ class ImagenAgent(BaseAgent):
                         generated_image = GeneratedImage(
                             image_id=image_result["image_id"],
                             slide_number=image_result["slide_number"],
-                            local_path=image_result["local_path"],
+                            local_path=str(image_path.absolute()),  # Use absolute path
                             url=image_result.get("url"),
                             quality_score=last_quality_score,
                             generation_time_seconds=generation_time,
@@ -138,7 +162,8 @@ class ImagenAgent(BaseAgent):
                         self.logger.info(
                             "image_accepted",
                             prompt_id=prompt_spec.prompt_id,
-                            quality_score=last_quality_score
+                            quality_score=last_quality_score,
+                            file_path=str(image_path.absolute())
                         )
                     
                     else:
@@ -166,7 +191,7 @@ class ImagenAgent(BaseAgent):
                             generated_image = GeneratedImage(
                                 image_id=image_result["image_id"],
                                 slide_number=image_result["slide_number"],
-                                local_path=image_result["local_path"],
+                                local_path=str(image_path.absolute()),  # Use absolute path
                                 url=image_result.get("url"),
                                 quality_score=last_quality_score,
                                 generation_time_seconds=generation_time,

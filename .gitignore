@@ -36,6 +36,7 @@ tmp/
 
 output/images/*
 output/videos/*
+output/assets/
 !output/images/*.txt
 !output/videos/*.txt
 
@@ -45,5 +46,28 @@ secrets/
 secrets/*
 secrets/gtmforge-475520-72b5724c3360.json
 
-# context
-# context/*
+
+web/node_modules/
+web/.next/
+web/out/
+web/dist/
+web/.turbo/
+web/*.tsbuildinfo
+web/.env.local
+web/.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+.idea/
+.vscode/
+*.iml
+*.sublime-*
+
+# OS
+Thumbs.db
+
+context/adk-python/
+
+node_modules/
+web/node_modules/
