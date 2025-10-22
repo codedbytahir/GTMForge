@@ -14,7 +14,7 @@ from google.adk import Agent
 
 from app.core.base_agent import BaseAgent
 from app.core.schemas import ImagenOutput, VeoOutput, GeneratedVideo
-from app.utils.google_clients import VeoClient
+from app.utils.real_api_clients import RealVeoClient
 from app.utils.config import AssetPathManager
 
 
@@ -44,7 +44,7 @@ class VeoAgent(BaseAgent):
             description="Generates cinematic video trailers from slide images using Veo",
             version="1.0.0"
         )
-        self.veo_client = VeoClient()
+        self.veo_client = RealVeoClient()  # Now uses real/mock toggle!
         self.quality_threshold = quality_threshold
         self.max_retries = max_retries
     
@@ -102,10 +102,9 @@ class VeoAgent(BaseAgent):
                 video_result = await self.veo_client.generate_video(
                     prompt="Cinematic trailer opening with problem visualization, transitioning to solution, showing momentum. Professional, inspiring, modern tech aesthetic.",
                     source_images=image_paths,
-                    duration_seconds=45,
+                    duration_seconds=8,
                     quality="high",
-                    retry_count=retry_count,
-                    max_retries=self.max_retries
+                    refinement_iteration=retry_count
                 )
                 
                 # Get absolute path using centralized manager

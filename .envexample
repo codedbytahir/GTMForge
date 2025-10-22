@@ -20,9 +20,13 @@ VEO_PROJECT_ID=$GCP_PROJECT_ID
 GCS_BUCKET_NAME=gtmforge-assets
 GCS_BUCKET_REGION=us-central1
 
+CANVA_API_KEY=your-canva-api-key
+CANVA_API_URL=https://api.canva.com/rest/v1
 CANVA_CLIENT_ID=your-canva-client-id
 CANVA_CLIENT_SECRET=your-canva-client-secret
 CANVA_REDIRECT_URI=http://localhost:8000/auth/canva/callback
+
+USE_MOCK_APIS=false
 
 ADK_LOG_LEVEL=INFO
 ADK_RETRY_ATTEMPTS=3

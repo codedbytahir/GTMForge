@@ -32,3 +32,4 @@ export default function ErrorView({ error, onReset }: ErrorViewProps) {
     </div>
   )
 }
+

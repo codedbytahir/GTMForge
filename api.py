@@ -11,6 +11,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import uvicorn
 
@@ -64,6 +65,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for serving local assets
+from app.utils.config import OUTPUT_DIR
+app.mount("/assets", StaticFiles(directory=str(OUTPUT_DIR / "assets")), name="assets")
 
 # WebSocket connection manager
 class ConnectionManager:

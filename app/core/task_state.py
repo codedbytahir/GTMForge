@@ -208,3 +208,4 @@ task_state = TaskState()
 def generate_task_id() -> str:
     """Generate a unique task ID."""
     return f"task_{uuid.uuid4().hex[:12]}"
+

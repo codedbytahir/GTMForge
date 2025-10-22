@@ -9,3 +9,4 @@ fi
 echo "Starting Next.js frontend on http://localhost:3001"
 npm run dev -- -p 3001
 
+

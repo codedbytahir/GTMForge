@@ -879,11 +879,16 @@ class GoogleCloudStorageClient:
             asset_id = metadata.get("deck_id", f"{asset_type}_{uuid.uuid4().hex[:8]}") if metadata else f"{asset_type}_{uuid.uuid4().hex[:8]}"
         
         gcs_path = f"gs://{self.bucket_name}/{asset_type}s/{asset_id}"
-        gcs_url = f"https://storage.googleapis.com/{self.bucket_name}/{asset_type}s/{asset_id}"
         
-        # TODO Phase 3: Replace with actual GCS upload
-        # blob = self.bucket.blob(gcs_path)
-        # blob.upload_from_filename(local_path)
+        # Generate local URL for serving assets (Phase 2: Mock implementation)
+        # TODO Phase 3: Replace with actual GCS upload and use real GCS URLs
+        if local_path:
+            # Serve from local filesystem via FastAPI static files
+            relative_path = local_path.replace(str(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))) + "/output/", "")
+            gcs_url = f"http://localhost:8000/{relative_path}"
+        else:
+            # For assets without local files (like Canva), use a placeholder
+            gcs_url = f"http://localhost:8000/assets/{asset_type}s/{asset_id}"
         
         # Get file size if local_path exists
         size_bytes = 0
@@ -894,7 +899,7 @@ class GoogleCloudStorageClient:
             "asset_id": asset_id,
             "local_path": local_path,
             "gcs_path": gcs_path,
-            "gcs_url": gcs_url,
+            "gcs_url": gcs_url,  # Now points to local server, not GCS
             "asset_type": asset_type,
             "size_bytes": size_bytes,
             "uploaded_at": datetime.now().isoformat(),

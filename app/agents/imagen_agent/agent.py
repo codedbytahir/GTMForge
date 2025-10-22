@@ -1,9 +1,3 @@
-"""
-Imagen Agent
-Generates images for all pitch deck slides using Imagen via Gemini API.
-Phase 2: Uses mock google_clients with placeholder implementations.
-Phase 3: Will integrate real Imagen API calls.
-"""
 
 from typing import Type
 from pydantic import BaseModel
@@ -14,7 +8,7 @@ from google.adk import Agent
 
 from app.core.base_agent import BaseAgent
 from app.core.schemas import PromptForgeOutput, ImagenOutput, GeneratedImage
-from app.utils.google_clients import GeminiImagenClient
+from app.utils.real_api_clients import RealImagenClient
 from app.utils.config import AssetPathManager
 
 
@@ -44,7 +38,7 @@ class ImagenAgent(BaseAgent):
             description="Generates images for pitch deck slides using Imagen",
             version="1.0.0"
         )
-        self.imagen_client = GeminiImagenClient()
+        self.imagen_client = RealImagenClient()  # Now uses real/mock toggle!
         self.quality_threshold = quality_threshold
         self.max_retries = max_retries
     
@@ -100,11 +94,9 @@ class ImagenAgent(BaseAgent):
                     image_result = await self.imagen_client.generate_image(
                         prompt=prompt_spec.prompt_text,
                         slide_number=prompt_spec.target_slide,
-                        quality="high",
                         aspect_ratio=prompt_spec.technical_params.get("aspect_ratio", "16:9"),
-                        style_guidance=prompt_spec.style_guidance,
-                        retry_count=retry_count,
-                        max_retries=self.max_retries
+                        quality="high",
+                        refinement_iteration=retry_count
                     )
                     
                     # Get absolute path using centralized manager
@@ -146,7 +138,7 @@ class ImagenAgent(BaseAgent):
                         # Quality acceptable, add to results
                         generated_image = GeneratedImage(
                             image_id=image_result["image_id"],
-                            slide_number=image_result["slide_number"],
+                            slide_number=prompt_spec.target_slide,  # Use from prompt_spec
                             local_path=str(image_path.absolute()),  # Use absolute path
                             url=image_result.get("url"),
                             quality_score=last_quality_score,
@@ -190,7 +182,7 @@ class ImagenAgent(BaseAgent):
                             # Max retries reached, accept current image
                             generated_image = GeneratedImage(
                                 image_id=image_result["image_id"],
-                                slide_number=image_result["slide_number"],
+                                slide_number=prompt_spec.target_slide,  # Use from prompt_spec
                                 local_path=str(image_path.absolute()),  # Use absolute path
                                 url=image_result.get("url"),
                                 quality_score=last_quality_score,
