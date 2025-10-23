@@ -23,7 +23,6 @@ gtmforge-venv/
 .AppleDouble
 .LSOverride
 
-*.json
 service-account-*.json
 gcp-credentials.json
 
