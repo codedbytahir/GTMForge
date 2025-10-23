@@ -1,6 +1,6 @@
 echo "Starting GTMForge with Google Cloud credentials..."
 
-export GOOGLE_APPLICATION_CREDENTIALS="secrets/gtmforge-475520-72b5724c3360.json"
+# export GOOGLE_APPLICATION_CREDENTIALS="secrets/gtmforge-475520-72b5724c3360.json"
 export GCP_PROJECT_ID="gtmforge-475520"
 export GCS_BUCKET_NAME="gtmforge-assets"
 export VERTEX_AI_LOCATION="us-central1"
@@ -8,10 +8,10 @@ export VERTEX_AI_LOCATION="us-central1"
 # API Mode: "true" for mock (free/fast), "false" for real APIs (costs money/slow)
 export USE_MOCK_APIS="${USE_MOCK_APIS:-false}"  # Default to real APIs
 
-if [ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-    echo "Error: Credentials file not found at $GOOGLE_APPLICATION_CREDENTIALS"
-    exit 1
-fi
+# if [ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+#     echo "Error: Credentials file not found at $GOOGLE_APPLICATION_CREDENTIALS"
+#     exit 1
+# fi
 
 echo "Credentials loaded from: $GOOGLE_APPLICATION_CREDENTIALS"
 echo "Project ID: $GCP_PROJECT_ID"

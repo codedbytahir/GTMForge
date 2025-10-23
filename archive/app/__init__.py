@@ -7,6 +7,7 @@ from app.core.orchestrator import GTMForgeOrchestrator
 from app.core.schemas import StartupIdeaInput, PipelineState
 from app.utils.config import AssetPathManager
 from app.utils.logger import setup_task_logging
+from app.forge import forge_agent as root_agent
 
 __version__ = "1.0.0"
 __author__ = "Daniel Efres"
