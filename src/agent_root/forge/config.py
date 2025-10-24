@@ -23,11 +23,11 @@ from pydantic import BaseModel, Field, model_validator
 #    GOOGLE_GENAI_USE_VERTEXAI=FALSE
 #    GOOGLE_API_KEY=PASTE_YOUR_ACTUAL_API_KEY_HERE
 # 2. This will override the default Vertex AI configuration
-_, project_id = google.auth.default()
-if project_id:
-    os.environ.setdefault("GOOGLE_CLOUD_PROJECT", project_id)
-os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
-os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
+# _, project_id = google.auth.default()
+# if project_id:
+#     os.environ.setdefault("GOOGLE_CLOUD_PROJECT", project_id)
+# os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "global")
+# os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
 
 
 class ResearchConfiguration(BaseModel):
